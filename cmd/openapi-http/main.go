@@ -1,23 +1,43 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 
 	"github.com/kalli/openapi-http/internal/generator"
 	"github.com/kalli/openapi-http/internal/parser"
+	flag "github.com/spf13/pflag"
 )
 
 func main() {
 	var operationID string
 	var path string
 	var outputFile string
+	
+	// Set custom usage function
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "openapi-http - Generate HTTP requests from OpenAPI specs\n\n")
+		fmt.Fprintf(os.Stderr, "Usage:\n")
+		fmt.Fprintf(os.Stderr, "  openapi-http [flags] <spec-file>\n")
+		fmt.Fprintf(os.Stderr, "  openapi-http <spec-file> [operation-id] [path]\n\n")
+		fmt.Fprintf(os.Stderr, "Examples:\n")
+		fmt.Fprintf(os.Stderr, "  openapi-http spec.yaml                    # list all operations\n")
+		fmt.Fprintf(os.Stderr, "  openapi-http -i getPet spec.yaml          # generate request for operation\n")
+		fmt.Fprintf(os.Stderr, "  openapi-http -p /pet spec.yaml            # generate requests for path\n")
+		fmt.Fprintf(os.Stderr, "  openapi-http spec.yaml getPet             # positional arguments\n\n")
+		fmt.Fprintf(os.Stderr, "Flags:\n")
+		flag.PrintDefaults()
+	}
 
-	flag.StringVar(&operationID, "operation-id", "", "operation id to generate")
-	flag.StringVar(&path, "path", "", "path to generate (e.g. /pet)")
-	flag.StringVar(&outputFile, "output", "", "output file (default: stdout)")
+	flag.StringVarP(&operationID, "operation-id", "i", "", "operation id to generate request for")
+	flag.StringVarP(&path, "path", "p", "", "path to generate requests for (e.g. /pet)")
+	flag.StringVarP(&outputFile, "output", "o", "", "output file (default: stdout)")
 	flag.Parse()
+	
+	
+
+	// Handle positional arguments
+	args := flag.Args()
 
 	if flag.NArg() < 1 {
 		fmt.Fprintf(os.Stderr, "usage: openapi-http [flags] <spec-file>\n")
@@ -32,6 +52,11 @@ func main() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error loading spec: %v\n", err)
 		os.Exit(1)
+	}
+
+	// If operation-id not set via flag, try positional arg
+	if operationID == "" && len(args) > 1 {
+		operationID = args[1]
 	}
 
 	// no filters → just list operations

@@ -2,7 +2,10 @@ module github.com/kalli/openapi-http
 
 go 1.24.1
 
-require github.com/getkin/kin-openapi v0.133.0
+require (
+	github.com/getkin/kin-openapi v0.133.0
+	github.com/spf13/pflag v1.0.10
+)
 
 require (
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
