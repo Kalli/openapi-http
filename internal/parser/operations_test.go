@@ -14,6 +14,55 @@ func TestListOperations(t *testing.T) {
 	ListOperations(spec)
 }
 
+func TestFindOperations_All(t *testing.T) {
+	spec, err := LoadSpec("../../test/petstore.yml")
+	if err != nil {
+		t.Fatalf("failed to load spec: %v", err)
+	}
+
+	// Test finding all operations (empty filters)
+	ops := FindOperations(spec, "", "")
+	
+	if len(ops) == 0 {
+		t.Fatal("expected to find operations in spec")
+	}
+
+	if len(ops) != 20 {
+		t.Errorf("expected 20 operations in petstore, got %d", len(ops))
+	}
+
+	// Verify all returned items are valid operations
+	for _, op := range ops {
+		if op.Path == "" {
+			t.Error("found operation with empty path")
+		}
+		if op.Method == "" {
+			t.Error("found operation with empty method")
+		}
+		if op.Operation == nil {
+			t.Error("found operation with nil Operation")
+		}
+	}
+
+	// Verify we have diverse methods (not just one method)
+	methods := make(map[string]bool)
+	for _, op := range ops {
+		methods[op.Method] = true
+	}
+	if len(methods) != 4 {
+		t.Errorf("expected 4 HTTP methods, got only %v", methods)
+	}
+
+	// Verify we have diverse paths (not just one path)
+	paths := make(map[string]bool)
+	for _, op := range ops {
+		paths[op.Path] = true
+	}
+	if len(paths) < 2 {
+		t.Errorf("expected multiple paths, got only %v", paths)
+	}
+}
+
 func TestFindOperations_ByOperationID(t *testing.T) {
 	spec, err := LoadSpec("../../test/petstore.yml")
 	if err != nil {
