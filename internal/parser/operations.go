@@ -44,13 +44,13 @@ func getMethodColor(method string) string {
 }
 
 // List the available operations in a spec, format:
-// $HTTPMethod $Path $OperationId - $summary
+// $HTTPMethod $Path $OperationId - $summary - $tags
 func ListOperations(spec *openapi3.T) {
 	fmt.Print("available operations:\n\n")
 
 	// Print table headers
-	fmt.Printf("  %s%-8s %-30s %-25s %s%s\n", colorBold, "METHOD", "PATH", "OPERATIONID", "SUMMARY", colorReset)
-	fmt.Printf("  %s%s%s\n", colorBold, "────────────────────────────────────────────────────────────────────────────────────", colorReset)
+	fmt.Printf("  %s%-8s %-30s %-25s %-40s %s%s\n", colorBold, "METHOD", "PATH", "OPERATIONID", "SUMMARY", "TAGS", colorReset)
+	fmt.Printf("  %s%s%s\n", colorBold, "──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────", colorReset)
 
 	var paths []string
 	for path := range spec.Paths.Map() {
@@ -75,9 +75,20 @@ func ListOperations(spec *openapi3.T) {
 			if summary == "" {
 				summary = "(no summary)"
 			}
+			
+			tags := "(no tags)"
+			if len(op.Tags) > 0 {
+				tags = op.Tags[0]
+				if len(op.Tags) > 1 {
+					tags += ", " + op.Tags[1]
+				}
+				if len(op.Tags) > 2 {
+					tags += "..."
+				}
+			}
 
 			color := getMethodColor(method)
-			fmt.Printf("  %s%-8s%s %-30s %s%-25s%s %s\n", color, method, colorReset, path, colorBold, opID, colorReset, summary)
+			fmt.Printf("  %s%-8s%s %-30s %s%-25s%s %-40s %s\n", color, method, colorReset, path, colorBold, opID, colorReset, summary, tags)
 		}
 	}
 }
