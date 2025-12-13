@@ -3,6 +3,7 @@ package generator
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/kalli/openapi-http/internal/parser"
@@ -78,7 +79,7 @@ func (g *Generator) getBaseURL() string {
 	return "{{hostname}}"
 }
 
-// builds path with example values for parameters 
+// builds path with example values for parameters
 func (g *Generator) buildPath(op parser.Operation) string {
 	path := op.Path
 
@@ -154,6 +155,77 @@ func (g *Generator) buildHeaders(op parser.Operation) map[string]string {
 			value = fmt.Sprintf("%v", param.Example)
 		}
 		headers[param.Name] = value
+	}
+
+	// security headers
+	securityHeaders := g.buildSecurityHeaders(op)
+	maps.Copy(headers, securityHeaders)
+	return headers
+}
+
+// buildSecurityHeaders generates authentication headers based on security requirements
+func (g *Generator) buildSecurityHeaders(op parser.Operation) map[string]string {
+	headers := make(map[string]string)
+
+	// determine which security requirements apply
+	var securityReqs openapi3.SecurityRequirements
+	if op.Operation.Security != nil {
+		// operation-level security overrides global
+		securityReqs = *op.Operation.Security
+	} else if g.spec.Security != nil {
+		// use global security
+		securityReqs = g.spec.Security
+	}
+
+	if len(securityReqs) == 0 {
+		return headers
+	}
+
+	// get security schemes from spec
+	if g.spec.Components == nil || g.spec.Components.SecuritySchemes == nil {
+		return headers
+	}
+
+	// process first security requirement (usually there's only one)
+	// if there are multiple, they represent alternatives (OR), not combinations
+	for schemeName := range securityReqs[0] {
+		schemeRef := g.spec.Components.SecuritySchemes[schemeName]
+		if schemeRef == nil || schemeRef.Value == nil {
+			continue
+		}
+
+		scheme := schemeRef.Value
+
+		switch scheme.Type {
+		case "apiKey":
+			// API key in header, query, or cookie
+			if scheme.In == "header" {
+				headers[scheme.Name] = fmt.Sprintf("{{%s}}", scheme.Name)
+			}
+			// Note: query and cookie params are handled elsewhere
+
+		case "http":
+			// HTTP authentication (Basic, Bearer, etc.)
+			switch strings.ToLower(scheme.Scheme) {
+			case "bearer":
+				headers["Authorization"] = "Bearer {{token}}"
+			case "basic":
+				headers["Authorization"] = "Basic {{credentials}}"
+			default:
+				headers["Authorization"] = fmt.Sprintf("{{%s}}", scheme.Scheme)
+			}
+
+		case "oauth2", "openIdConnect":
+			// OAuth2 and OpenID Connect typically use Bearer tokens
+			headers["Authorization"] = "Bearer {{token}}"
+
+		case "mutualTLS":
+			// mutual TLS is handled at connection level, not in headers
+			// nothing to add here
+		}
+
+		// only process first security scheme
+		break
 	}
 
 	return headers

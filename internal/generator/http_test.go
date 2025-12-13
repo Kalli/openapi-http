@@ -598,3 +598,444 @@ func TestCollectParameters_OperationOverridesPath(t *testing.T) {
 		t.Fatalf("expected 2 parameters, got %d", len(params))
 	}
 }
+
+func TestBuildSecurityHeaders_BearerAuth(t *testing.T) {
+	spec := &openapi3.T{
+		Components: &openapi3.Components{
+			SecuritySchemes: openapi3.SecuritySchemes{
+				"bearerAuth": &openapi3.SecuritySchemeRef{
+					Value: &openapi3.SecurityScheme{
+						Type:   "http",
+						Scheme: "bearer",
+					},
+				},
+			},
+		},
+	}
+
+	pathItem := &openapi3.PathItem{
+		Get: &openapi3.Operation{
+			Security: &openapi3.SecurityRequirements{
+				{"bearerAuth": []string{}},
+			},
+		},
+	}
+
+	op := parser.Operation{
+		Path:      "/secure",
+		Method:    "GET",
+		Operation: pathItem.Get,
+		PathItem:  pathItem,
+	}
+
+	gen := NewGenerator(spec)
+	headers := gen.buildSecurityHeaders(op)
+
+	if headers["Authorization"] != "Bearer {{token}}" {
+		t.Errorf("expected Bearer token auth, got: %s", headers["Authorization"])
+	}
+}
+
+func TestBuildSecurityHeaders_BasicAuth(t *testing.T) {
+	spec := &openapi3.T{
+		Components: &openapi3.Components{
+			SecuritySchemes: openapi3.SecuritySchemes{
+				"basicAuth": &openapi3.SecuritySchemeRef{
+					Value: &openapi3.SecurityScheme{
+						Type:   "http",
+						Scheme: "basic",
+					},
+				},
+			},
+		},
+	}
+
+	pathItem := &openapi3.PathItem{
+		Get: &openapi3.Operation{
+			Security: &openapi3.SecurityRequirements{
+				{"basicAuth": []string{}},
+			},
+		},
+	}
+
+	op := parser.Operation{
+		Path:      "/secure",
+		Method:    "GET",
+		Operation: pathItem.Get,
+		PathItem:  pathItem,
+	}
+
+	gen := NewGenerator(spec)
+	headers := gen.buildSecurityHeaders(op)
+
+	if headers["Authorization"] != "Basic {{credentials}}" {
+		t.Errorf("expected Basic auth, got: %s", headers["Authorization"])
+	}
+}
+
+func TestBuildSecurityHeaders_APIKeyInHeader(t *testing.T) {
+	spec := &openapi3.T{
+		Components: &openapi3.Components{
+			SecuritySchemes: openapi3.SecuritySchemes{
+				"apiKey": &openapi3.SecuritySchemeRef{
+					Value: &openapi3.SecurityScheme{
+						Type: "apiKey",
+						In:   "header",
+						Name: "X-API-Key",
+					},
+				},
+			},
+		},
+	}
+
+	pathItem := &openapi3.PathItem{
+		Get: &openapi3.Operation{
+			Security: &openapi3.SecurityRequirements{
+				{"apiKey": []string{}},
+			},
+		},
+	}
+
+	op := parser.Operation{
+		Path:      "/secure",
+		Method:    "GET",
+		Operation: pathItem.Get,
+		PathItem:  pathItem,
+	}
+
+	gen := NewGenerator(spec)
+	headers := gen.buildSecurityHeaders(op)
+
+	if headers["X-API-Key"] != "{{X-API-Key}}" {
+		t.Errorf("expected X-API-Key header, got: %s", headers["X-API-Key"])
+	}
+}
+
+func TestBuildSecurityHeaders_OAuth2(t *testing.T) {
+	spec := &openapi3.T{
+		Components: &openapi3.Components{
+			SecuritySchemes: openapi3.SecuritySchemes{
+				"oauth2": &openapi3.SecuritySchemeRef{
+					Value: &openapi3.SecurityScheme{
+						Type: "oauth2",
+						Flows: &openapi3.OAuthFlows{
+							AuthorizationCode: &openapi3.OAuthFlow{
+								AuthorizationURL: "https://example.com/oauth/authorize",
+								TokenURL:         "https://example.com/oauth/token",
+								Scopes:           map[string]string{"read": "Read access"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	pathItem := &openapi3.PathItem{
+		Get: &openapi3.Operation{
+			Security: &openapi3.SecurityRequirements{
+				{"oauth2": []string{"read"}},
+			},
+		},
+	}
+
+	op := parser.Operation{
+		Path:      "/secure",
+		Method:    "GET",
+		Operation: pathItem.Get,
+		PathItem:  pathItem,
+	}
+
+	gen := NewGenerator(spec)
+	headers := gen.buildSecurityHeaders(op)
+
+	if headers["Authorization"] != "Bearer {{token}}" {
+		t.Errorf("expected Bearer token for OAuth2, got: %s", headers["Authorization"])
+	}
+}
+
+func TestBuildSecurityHeaders_OpenIDConnect(t *testing.T) {
+	spec := &openapi3.T{
+		Components: &openapi3.Components{
+			SecuritySchemes: openapi3.SecuritySchemes{
+				"openId": &openapi3.SecuritySchemeRef{
+					Value: &openapi3.SecurityScheme{
+						Type:             "openIdConnect",
+						OpenIdConnectUrl: "https://example.com/.well-known/openid-configuration",
+					},
+				},
+			},
+		},
+	}
+
+	pathItem := &openapi3.PathItem{
+		Get: &openapi3.Operation{
+			Security: &openapi3.SecurityRequirements{
+				{"openId": []string{}},
+			},
+		},
+	}
+
+	op := parser.Operation{
+		Path:      "/secure",
+		Method:    "GET",
+		Operation: pathItem.Get,
+		PathItem:  pathItem,
+	}
+
+	gen := NewGenerator(spec)
+	headers := gen.buildSecurityHeaders(op)
+
+	if headers["Authorization"] != "Bearer {{token}}" {
+		t.Errorf("expected Bearer token for OpenID Connect, got: %s", headers["Authorization"])
+	}
+}
+
+func TestBuildSecurityHeaders_GlobalSecurity(t *testing.T) {
+	spec := &openapi3.T{
+		Components: &openapi3.Components{
+			SecuritySchemes: openapi3.SecuritySchemes{
+				"globalAuth": &openapi3.SecuritySchemeRef{
+					Value: &openapi3.SecurityScheme{
+						Type:   "http",
+						Scheme: "bearer",
+					},
+				},
+			},
+		},
+		Security: openapi3.SecurityRequirements{
+			{"globalAuth": []string{}},
+		},
+	}
+
+	pathItem := &openapi3.PathItem{
+		Get: &openapi3.Operation{
+			// No operation-level security, should use global
+		},
+	}
+
+	op := parser.Operation{
+		Path:      "/secure",
+		Method:    "GET",
+		Operation: pathItem.Get,
+		PathItem:  pathItem,
+	}
+
+	gen := NewGenerator(spec)
+	headers := gen.buildSecurityHeaders(op)
+
+	if headers["Authorization"] != "Bearer {{token}}" {
+		t.Errorf("expected Bearer token from global security, got: %s", headers["Authorization"])
+	}
+}
+
+func TestBuildSecurityHeaders_OperationOverridesGlobal(t *testing.T) {
+	spec := &openapi3.T{
+		Components: &openapi3.Components{
+			SecuritySchemes: openapi3.SecuritySchemes{
+				"globalAuth": &openapi3.SecuritySchemeRef{
+					Value: &openapi3.SecurityScheme{
+						Type:   "http",
+						Scheme: "bearer",
+					},
+				},
+				"opAuth": &openapi3.SecuritySchemeRef{
+					Value: &openapi3.SecurityScheme{
+						Type:   "http",
+						Scheme: "basic",
+					},
+				},
+			},
+		},
+		Security: openapi3.SecurityRequirements{
+			{"globalAuth": []string{}},
+		},
+	}
+
+	pathItem := &openapi3.PathItem{
+		Get: &openapi3.Operation{
+			Security: &openapi3.SecurityRequirements{
+				{"opAuth": []string{}},
+			},
+		},
+	}
+
+	op := parser.Operation{
+		Path:      "/secure",
+		Method:    "GET",
+		Operation: pathItem.Get,
+		PathItem:  pathItem,
+	}
+
+	gen := NewGenerator(spec)
+	headers := gen.buildSecurityHeaders(op)
+
+	if headers["Authorization"] != "Basic {{credentials}}" {
+		t.Errorf("expected operation-level Basic auth to override global, got: %s", headers["Authorization"])
+	}
+}
+
+func TestBuildSecurityHeaders_NoSecurity(t *testing.T) {
+	spec := &openapi3.T{
+		Components: &openapi3.Components{
+			SecuritySchemes: openapi3.SecuritySchemes{},
+		},
+	}
+
+	pathItem := &openapi3.PathItem{
+		Get: &openapi3.Operation{
+			// No security requirements
+		},
+	}
+
+	op := parser.Operation{
+		Path:      "/public",
+		Method:    "GET",
+		Operation: pathItem.Get,
+		PathItem:  pathItem,
+	}
+
+	gen := NewGenerator(spec)
+	headers := gen.buildSecurityHeaders(op)
+
+	if len(headers) != 0 {
+		t.Errorf("expected no security headers, got: %v", headers)
+	}
+}
+
+func TestBuildSecurityHeaders_EmptySecurityRequirement(t *testing.T) {
+	spec := &openapi3.T{
+		Components: &openapi3.Components{
+			SecuritySchemes: openapi3.SecuritySchemes{
+				"bearerAuth": &openapi3.SecuritySchemeRef{
+					Value: &openapi3.SecurityScheme{
+						Type:   "http",
+						Scheme: "bearer",
+					},
+				},
+			},
+		},
+		Security: openapi3.SecurityRequirements{
+			{"bearerAuth": []string{}},
+		},
+	}
+
+	pathItem := &openapi3.PathItem{
+		Get: &openapi3.Operation{
+			// Empty security requirement means no auth required (overrides global)
+			Security: &openapi3.SecurityRequirements{},
+		},
+	}
+
+	op := parser.Operation{
+		Path:      "/public",
+		Method:    "GET",
+		Operation: pathItem.Get,
+		PathItem:  pathItem,
+	}
+
+	gen := NewGenerator(spec)
+	headers := gen.buildSecurityHeaders(op)
+
+	if len(headers) != 0 {
+		t.Errorf("expected no security headers for empty security requirement, got: %v", headers)
+	}
+}
+
+func TestBuildHeaders_WithSecurity(t *testing.T) {
+	spec := &openapi3.T{
+		Servers: []*openapi3.Server{
+			{URL: "https://api.example.com"},
+		},
+		Components: &openapi3.Components{
+			SecuritySchemes: openapi3.SecuritySchemes{
+				"bearerAuth": &openapi3.SecuritySchemeRef{
+					Value: &openapi3.SecurityScheme{
+						Type:   "http",
+						Scheme: "bearer",
+					},
+				},
+			},
+		},
+	}
+
+	pathItem := &openapi3.PathItem{
+		Post: &openapi3.Operation{
+			Security: &openapi3.SecurityRequirements{
+				{"bearerAuth": []string{}},
+			},
+			RequestBody: &openapi3.RequestBodyRef{
+				Value: &openapi3.RequestBody{
+					Content: openapi3.Content{
+						"application/json": &openapi3.MediaType{},
+					},
+				},
+			},
+		},
+	}
+
+	op := parser.Operation{
+		Path:      "/secure",
+		Method:    "POST",
+		Operation: pathItem.Post,
+		PathItem:  pathItem,
+	}
+
+	gen := NewGenerator(spec)
+	headers := gen.buildHeaders(op)
+
+	// Should have both Content-Type and Authorization
+	if headers["Content-Type"] != "application/json" {
+		t.Errorf("expected Content-Type header, got: %s", headers["Content-Type"])
+	}
+
+	if headers["Authorization"] != "Bearer {{token}}" {
+		t.Errorf("expected Authorization header, got: %s", headers["Authorization"])
+	}
+}
+
+func TestBuildHTTPRequest_WithBearerAuth(t *testing.T) {
+	spec := &openapi3.T{
+		Servers: []*openapi3.Server{
+			{URL: "https://api.example.com"},
+		},
+		Components: &openapi3.Components{
+			SecuritySchemes: openapi3.SecuritySchemes{
+				"bearerAuth": &openapi3.SecuritySchemeRef{
+					Value: &openapi3.SecurityScheme{
+						Type:   "http",
+						Scheme: "bearer",
+					},
+				},
+			},
+		},
+	}
+
+	pathItem := &openapi3.PathItem{
+		Get: &openapi3.Operation{
+			OperationID: "getSecureData",
+			Summary:     "Get secure data",
+			Security: &openapi3.SecurityRequirements{
+				{"bearerAuth": []string{}},
+			},
+		},
+	}
+
+	op := parser.Operation{
+		Path:      "/secure",
+		Method:    "GET",
+		Operation: pathItem.Get,
+		PathItem:  pathItem,
+	}
+
+	gen := NewGenerator(spec)
+	result, err := gen.BuildHTTPRequest(op)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(result, "Authorization: Bearer {{token}}") {
+		t.Errorf("expected Authorization header in output, got:\n%s", result)
+	}
+}
