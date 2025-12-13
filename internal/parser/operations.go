@@ -44,13 +44,13 @@ func getMethodColor(method string) string {
 }
 
 // List the available operations in a spec, format:
-// $HTTPMethod $Path $OperationId - $summary - $tags
+// $HTTPMethod $Path $OperationId - $summary - $tags - $status
 func ListOperations(spec *openapi3.T) {
 	fmt.Print("available operations:\n\n")
 
 	// Print table headers
-	fmt.Printf("  %s%-8s %-30s %-25s %-40s %s%s\n", colorBold, "METHOD", "PATH", "OPERATIONID", "SUMMARY", "TAGS", colorReset)
-	fmt.Printf("  %s%s%s\n", colorBold, "──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────", colorReset)
+	fmt.Printf("  %s%-8s %-30s %-25s %-40s %-15s %s%s\n", colorBold, "METHOD", "PATH", "OPERATIONID", "SUMMARY", "TAGS", "STATUS", colorReset)
+	fmt.Printf("  %s%s%s\n", colorBold, "────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────", colorReset)
 
 	var paths []string
 	for path := range spec.Paths.Map() {
@@ -86,9 +86,14 @@ func ListOperations(spec *openapi3.T) {
 					tags += "..."
 				}
 			}
+			
+			status := ""
+			if op.Deprecated {
+				status = colorRed + "DEPRECATED" + colorReset
+			}
 
 			color := getMethodColor(method)
-			fmt.Printf("  %s%-8s%s %-30s %s%-25s%s %-40s %s\n", color, method, colorReset, path, colorBold, opID, colorReset, summary, tags)
+			fmt.Printf("  %s%-8s%s %-30s %s%-25s%s %-40s %-15s %s\n", color, method, colorReset, path, colorBold, opID, colorReset, summary, tags, status)
 		}
 	}
 }
