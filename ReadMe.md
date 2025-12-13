@@ -24,7 +24,9 @@ See the available flags and parameters:
 openapi-http --help
 ```
 
-List the operations available in an Open Api spec:
+### List
+
+List the all operations available in an Open Api spec:
 
 ```sh
 # Use a URL:
@@ -33,7 +35,9 @@ openapi-http https://petstore3.swagger.io/api/v3/openapi.json
 openapi-http test/petstore.yml
 ```
 
-Create an example request:
+### Filter by OperationId
+
+Create an example request by specifying an operation id:
 
 ```sh
 openapi-http https://petstore3.swagger.io/api/v3/openapi.json --operation-id addPet
@@ -73,10 +77,25 @@ Content-Type: application/json
 }
 ```
 
-You can also list all the operations for a given path:
+### Filter by path
+
+You can also create requests for all the operations on a given path:
 
 ```sh
-openapi-http https://petstore3.swagger.io/api/v3/openapi.json -path /pet 
+openapi-http https://petstore3.swagger.io/api/v3/openapi.json --path /pet 
 ```
 
 This will print out requests for the `updatePet` and `addPet` requests.
+
+### Filter by path
+
+Creating operations by specifying a tag is also an option:
+
+```sh
+openapi-http https://petstore3.swagger.io/api/v3/openapi.json --tag pet
+# or use -t for tag
+openapi-http https://petstore3.swagger.io/api/v3/openapi.json -t pet
+```
+
+This will generate requests for all operations tagged with `pet`.
+

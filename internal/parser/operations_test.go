@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"slices"
 	"testing"
 )
 
@@ -21,8 +22,8 @@ func TestFindOperations_All(t *testing.T) {
 	}
 
 	// Test finding all operations (empty filters)
-	ops := FindOperations(spec, "", "")
-	
+	ops := FindOperations(spec, "", "", "")
+
 	if len(ops) == 0 {
 		t.Fatal("expected to find operations in spec")
 	}
@@ -70,8 +71,8 @@ func TestFindOperations_ByOperationID(t *testing.T) {
 	}
 
 	// Test finding a specific operation by ID
-	ops := FindOperations(spec, "addPet", "")
-	
+	ops := FindOperations(spec, "addPet", "", "")
+
 	if len(ops) == 0 {
 		t.Fatal("expected to find addPet operation")
 	}
@@ -101,8 +102,8 @@ func TestFindOperations_ByPath(t *testing.T) {
 	}
 
 	// Test finding all operations for a path
-	ops := FindOperations(spec, "", "/pet")
-	
+	ops := FindOperations(spec, "", "/pet", "")
+
 	if len(ops) == 0 {
 		t.Fatal("expected to find operations for /pet path")
 	}
@@ -127,8 +128,8 @@ func TestFindOperations_ByBoth(t *testing.T) {
 	}
 
 	// Test finding by both operationId and path
-	ops := FindOperations(spec, "updatePet", "/pet")
-	
+	ops := FindOperations(spec, "updatePet", "/pet", "")
+
 	if len(ops) != 1 {
 		t.Fatalf("expected 1 operation, got %d", len(ops))
 	}
@@ -147,6 +148,52 @@ func TestFindOperations_ByBoth(t *testing.T) {
 	}
 }
 
+func TestFindOperations_ByTag(t *testing.T) {
+	spec, err := LoadSpec("../../test/petstore.yml")
+	if err != nil {
+		t.Fatalf("failed to load spec: %v", err)
+	}
+
+	// Test finding operations by tag
+	ops := FindOperations(spec, "", "", "pet")
+
+	if len(ops) == 0 {
+		t.Fatal("expected to find operations with 'pet' tag")
+	}
+
+	// Verify all operations have the correct tag
+	for _, op := range ops {
+		if !slices.Contains(op.Operation.Tags, "pet") {
+			t.Errorf("operation %s does not have 'pet' tag", op.Operation.OperationID)
+		}
+	}
+
+}
+
+func TestFindOperations_ByTagAndPath(t *testing.T) {
+	spec, err := LoadSpec("../../test/petstore.yml")
+	if err != nil {
+		t.Fatalf("failed to load spec: %v", err)
+	}
+
+	// Test finding operations by both tag and path
+	ops := FindOperations(spec, "", "/pet", "pet")
+
+	if len(ops) == 0 {
+		t.Fatal("expected to find operations with 'pet' tag at /pet path")
+	}
+
+	// Verify all operations have the correct path and tag
+	for _, op := range ops {
+		if op.Path != "/pet" {
+			t.Errorf("expected path '/pet', got '%s'", op.Path)
+		}
+		if !slices.Contains(op.Operation.Tags, "pet") {
+			t.Errorf("operation %s does not have 'pet' tag", op.Operation.OperationID)
+		}
+	}
+}
+
 func TestFindOperations_NotFound(t *testing.T) {
 	spec, err := LoadSpec("../../test/petstore.yml")
 	if err != nil {
@@ -154,10 +201,17 @@ func TestFindOperations_NotFound(t *testing.T) {
 	}
 
 	// Test finding non-existent operation
-	ops := FindOperations(spec, "nonExistentOperation", "")
-	
+	ops := FindOperations(spec, "nonExistentOperation", "", "")
+
 	if len(ops) != 0 {
 		t.Errorf("expected 0 operations, got %d", len(ops))
+	}
+
+	// Test finding non-existent tag
+	ops = FindOperations(spec, "", "", "nonExistentTag")
+
+	if len(ops) != 0 {
+		t.Errorf("expected 0 operations for non-existent tag, got %d", len(ops))
 	}
 }
 
@@ -168,8 +222,8 @@ func TestFindOperations_WithPathParameters(t *testing.T) {
 	}
 
 	// Test finding operation with path parameters
-	ops := FindOperations(spec, "getPetById", "")
-	
+	ops := FindOperations(spec, "getPetById", "", "")
+
 	if len(ops) != 1 {
 		t.Fatalf("expected 1 operation, got %d", len(ops))
 	}

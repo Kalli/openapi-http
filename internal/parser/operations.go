@@ -82,8 +82,18 @@ func ListOperations(spec *openapi3.T) {
 	}
 }
 
-// find all the operations for a given path or identified by an operationId
-func FindOperations(spec *openapi3.T, operationID, path string) []Operation {
+// hasTag checks if an operation has a specific tag
+func hasTag(op *openapi3.Operation, tag string) bool {
+	for _, t := range op.Tags {
+		if t == tag {
+			return true
+		}
+	}
+	return false
+}
+
+// find all the operations for a given path, operationId, or tag
+func FindOperations(spec *openapi3.T, operationID, path, tag string) []Operation {
 	var results []Operation
 
 	for p, pathItem := range spec.Paths.Map() {
@@ -100,6 +110,11 @@ func FindOperations(spec *openapi3.T, operationID, path string) []Operation {
 
 			// filter by operation id if specified
 			if operationID != "" && op.OperationID != operationID {
+				continue
+			}
+
+			// filter by tag if specified
+			if tag != "" && !hasTag(op, tag) {
 				continue
 			}
 
