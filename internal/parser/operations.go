@@ -14,10 +14,43 @@ type Operation struct {
 	PathItem  *openapi3.PathItem
 }
 
+// ANSI color codes
+const (
+	colorReset      = "\033[0m"
+	colorBlue       = "\033[34m"  // GET
+	colorRed        = "\033[31m"  // DELETE
+	colorLightGreen = "\033[92m"  // PATCH
+	colorDarkGreen  = "\033[32m"  // POST
+	colorYellow     = "\033[93m"  // PUT (bright yellow, universally supported)
+	colorBold       = "\033[1m"   // Bold for headers
+)
+
+// getMethodColor returns the ANSI color code for a given HTTP method
+func getMethodColor(method string) string {
+	switch method {
+	case "GET":
+		return colorBlue
+	case "DELETE":
+		return colorRed
+	case "PATCH":
+		return colorLightGreen
+	case "POST":
+		return colorDarkGreen
+	case "PUT":
+		return colorYellow
+	default:
+		return colorReset
+	}
+}
+
 // List the available operations in a spec, format:
 // $HTTPMethod $Path $OperationId - $summary
 func ListOperations(spec *openapi3.T) {
 	fmt.Print("available operations:\n\n")
+
+	// Print table headers
+	fmt.Printf("  %s%-8s %-30s %-25s %s%s\n", colorBold, "METHOD", "PATH", "OPERATIONID", "SUMMARY", colorReset)
+	fmt.Printf("  %s%s%s\n", colorBold, "────────────────────────────────────────────────────────────────────────────────────", colorReset)
 
 	var paths []string
 	for path := range spec.Paths.Map() {
@@ -43,7 +76,8 @@ func ListOperations(spec *openapi3.T) {
 				summary = "(no summary)"
 			}
 
-			fmt.Printf("  %-8s %-30s %s - %s\n", method, path, opID, summary)
+			color := getMethodColor(method)
+			fmt.Printf("  %s%-8s%s %-30s %s%-25s%s %s\n", color, method, colorReset, path, colorBold, opID, colorReset, summary)
 		}
 	}
 }
