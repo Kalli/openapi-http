@@ -36,7 +36,11 @@ openapi-http test/petstore.yml
 Create an example request:
 
 ```sh
-openapi-http --operation-id addPet https://petstore3.swagger.io/api/v3/openapi.json
+openapi-http https://petstore3.swagger.io/api/v3/openapi.json --operation-id addPet
+# or use -i for operationId
+openapi-http https://petstore3.swagger.io/api/v3/openapi.json -i addPet
+# or positional
+openapi-http https://petstore3.swagger.io/api/v3/openapi.json addPet
 ```
 
 This will create an example request like so:
@@ -72,7 +76,7 @@ Content-Type: application/json
 You can also list all the operations for a given path:
 
 ```sh
-openapi-http -path /pet https://petstore3.swagger.io/api/v3/openapi.json
+openapi-http https://petstore3.swagger.io/api/v3/openapi.json -path /pet 
 ```
 
 This will print out requests for the `updatePet` and `addPet` requests.
