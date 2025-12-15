@@ -116,10 +116,10 @@ func (g *Generator) buildQueryString(op parser.Operation) string {
 		value := "{{" + param.Name + "}}"
 
 		if param.Example != nil {
-			value = fmt.Sprintf("%v", param.Example)
+			value = g.formatParameterValue(param.Example)
 		} else if param.Schema != nil && param.Schema.Value != nil {
 			if example := g.generateExample(param.Schema.Value); example != nil {
-				value = fmt.Sprintf("%v", example)
+				value = g.formatParameterValue(example)
 			}
 		}
 
@@ -127,6 +127,17 @@ func (g *Generator) buildQueryString(op parser.Operation) string {
 	}
 
 	return strings.Join(parts, "&")
+}
+
+
+// formatParameterValue formats a parameter value for use in URLs
+// If the value is an array/slice, extracts the first element
+func (g *Generator) formatParameterValue(value any) string {
+	// handle array/slice values by extracting first element
+	if slice, ok := value.([]any); ok && len(slice) > 0 {
+		return fmt.Sprintf("%v", slice[0])
+	}
+	return fmt.Sprintf("%v", value)
 }
 
 // builds headers defined for the request

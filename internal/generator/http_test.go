@@ -1039,3 +1039,165 @@ func TestBuildHTTPRequest_WithBearerAuth(t *testing.T) {
 		t.Errorf("expected Authorization header in output, got:\n%s", result)
 	}
 }
+
+func TestBuildHTTPRequest_WithArrayQueryParameter(t *testing.T) {
+	spec := &openapi3.T{
+		Servers: []*openapi3.Server{
+			{URL: "https://api.example.com"},
+		},
+	}
+
+	pathItem := &openapi3.PathItem{
+		Get: &openapi3.Operation{
+			OperationID: "findPets",
+			Parameters: openapi3.Parameters{
+				&openapi3.ParameterRef{
+					Value: &openapi3.Parameter{
+						Name:     "status",
+						In:       "query",
+						Required: true,
+						Explode:  openapi3.BoolPtr(true),
+						Schema: &openapi3.SchemaRef{
+							Value: &openapi3.Schema{
+								Type: &openapi3.Types{"array"},
+								Items: &openapi3.SchemaRef{
+									Value: &openapi3.Schema{
+										Type: &openapi3.Types{"string"},
+										Enum: []interface{}{"available", "pending", "sold"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	op := parser.Operation{
+		Path:      "/pets",
+		Method:    "GET",
+		Operation: pathItem.Get,
+		PathItem:  pathItem,
+	}
+
+	gen := NewGenerator(spec)
+	result, err := gen.BuildHTTPRequest(op)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify that the array parameter is formatted without brackets
+	if !strings.Contains(result, "status=available") {
+		t.Error("expected status=available in query string")
+	}
+
+	// Ensure no brackets are present
+	if strings.Contains(result, "[available]") {
+		t.Error("array value should not include brackets in query string")
+	}
+}
+
+func TestFormatParameterValue_Array(t *testing.T) {
+	gen := &Generator{}
+
+	tests := []struct {
+		name     string
+		input    interface{}
+		expected string
+	}{
+		{
+			name:     "array with single string element",
+			input:    []interface{}{"available"},
+			expected: "available",
+		},
+		{
+			name:     "array with multiple elements returns first",
+			input:    []interface{}{"pending", "sold"},
+			expected: "pending",
+		},
+		{
+			name:     "array with integer element",
+			input:    []interface{}{123},
+			expected: "123",
+		},
+		{
+			name:     "empty array",
+			input:    []interface{}{},
+			expected: "[]",
+		},
+		{
+			name:     "non-array string",
+			input:    "simple-string",
+			expected: "simple-string",
+		},
+		{
+			name:     "non-array integer",
+			input:    42,
+			expected: "42",
+		},
+		{
+			name:     "non-array boolean",
+			input:    true,
+			expected: "true",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := gen.formatParameterValue(tt.input)
+			if result != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestBuildQueryString_WithArrayParameter(t *testing.T) {
+	spec := &openapi3.T{}
+
+	pathItem := &openapi3.PathItem{
+		Get: &openapi3.Operation{
+			Parameters: openapi3.Parameters{
+				&openapi3.ParameterRef{
+					Value: &openapi3.Parameter{
+						Name: "tags",
+						In:   "query",
+						Schema: &openapi3.SchemaRef{
+							Value: &openapi3.Schema{
+								Type: &openapi3.Types{"array"},
+								Items: &openapi3.SchemaRef{
+									Value: &openapi3.Schema{
+										Type:    &openapi3.Types{"string"},
+										Example: "tag1",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	op := parser.Operation{
+		Path:      "/items",
+		Method:    "GET",
+		Operation: pathItem.Get,
+		PathItem:  pathItem,
+	}
+
+	gen := NewGenerator(spec)
+	query := gen.buildQueryString(op)
+
+	// Should extract first element from generated array
+	if !strings.Contains(query, "tags=tag1") {
+		t.Errorf("expected tags=tag1, got: %s", query)
+	}
+
+	// Should not include array brackets
+	if strings.Contains(query, "[tag1]") {
+		t.Errorf("query should not contain array brackets, got: %s", query)
+	}
+}
